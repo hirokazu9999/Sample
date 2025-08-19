@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カンバンボード</title>
+  <style>
+    body {
+      font-family: 'Cinzel', serif;
+      margin: 0;
+      padding: 0;
+      background-size: cover;
+      background-repeat: no-repeat;
+      color: #f1e4d3;
+    }
+    .board {
+      display: flex;
+      justify-content: space-around;
+      margin: 10px;
+    }
+    .main {
+      width: 95%;
+      padding: 10px;
+      border: 2px solid #6d4c41;
+      background-color: black;
+      min-height: 120px;
+      justify-content: space-around;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #b5a7bc;
+    }
+    #new-task {
+      width: 30%;
+    }
+    .column {
+      width: 30%;
+      padding: 10px;
+      border: 2px solid #6d4c41;
+      background-color: black;
+      min-height: 150px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #b5a7bc;
+    }
+    .task {
+      margin: 10px;
+      padding: 10px;
+      border: 2px solid #b5a7bc;
+      background-color: #3e2723;
+      color: white;
+      cursor: grab;
+      border-radius: 5px;
+      box-shadow: 0 0 5px #ffcc00;
+    }
+    .task:hover {
+      background-color: #795548;
+      box-shadow: 0 0 10px #ff6f00;
+    }
+  </style>
+</head>
+<body>
+  <div class="board">
+    <div class="main">
+      クエストを入力してください。
+      <br>
+      <input type="text" id="new-task" placeholder="新しいクエストを追加" />
+      <input type="date" id="new-deadline" placeholder="期間を設定" />
+      <button onclick="addTask()">追加</button>
+      <br>
+      <br>
+      <button onclick="location.reload()">画面の再読込</button>
+    </div>
+  </div>
+  <div class="board">
+    <div class="column" id="todo">
+      クエストリスト
+    </div>
+    <div class="column" id="in-progress">
+      クエスト中
+    </div>
+    <div class="column" id="done">
+      クエスト完了
+    </div>
+  </div>
+  <script>
+    let isEditing =false;
+    
+    // タスクの保存
+    const saveTasks = () => {
+      const tasks = {};
+      document.querySelectorAll('.column').forEach(column => {
+        tasks[column.id] = Array.from(column.querySelectorAll('.task')).map(task => ({
+          id: task.id,
+          text: task.querySelector('span').textContent.replace('【内容】',''),
+          deadline: task.querySelector('.deadline')?.textContent.replace('【期限】','').replace('削除','').replace('編集','').replace('保存','').trim() || null
+        }));
+      });
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    };
+
+    // タスクの読込
+    const loadTasks = () => {
+      const tasks = JSON.parse(localStorage.getItem('tasks')) || {};
+      Object.entries(tasks).forEach(([columnId,columnTasks]) => {
+        const column = document.getElementById(columnId);
+        columnTasks.forEach(taskData => column.appendChild(createTaskElement(taskData)));
+      });
+      checkDeadlines();
+    };
+    
+    // タスクの表示
+    const createTaskElement = taskData => {
+      const task = document.createElement('div');
+      task.className = 'task';
+      task.setAttribute('draggable', true);
+      task.id = taskData.id;
+
+      const taskContent = document.createElement('span');
+      taskContent.textContent = `【内容】${taskData.text}`;
+      task.appendChild(taskContent);
+
+      const deadline = document.createElement('div');
+      deadline.className = 'deadline';
+      deadline.textContent = `【期限】${taskData.deadline}`;
+
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '編集';
+      editBtn.style.marginLeft = '10px';
+      editBtn.onclick = () => {
+        editTask(task, taskData);
+      };
+      deadline.appendChild(editBtn);
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '削除';
+      deleteBtn.style.marginLeft = '10px';
+      deleteBtn.onclick = () => {
+        task.remove();
+        saveTasks();
+      };
+      deadline.appendChild(deleteBtn);
+      
+      task.appendChild(deadline);
+      
+      task.ondragstart = e => e.dataTransfer.setData('text/plain', task.id);
+      
+      return task;
+    };
+
+    // タスクの編集
+    const editTask = (task, taskData) => {
+      isEditing = true;
+      const taskInput = document.createElement('input');
+      taskInput.type = 'text';
+      taskInput.value = taskData.text;
+      taskInput.style.width = '95%';
+      
+      const deadlineInput = document.createElement('input');
+      deadlineInput.type = 'date';
+      deadlineInput.value = taskData.deadline;
+      
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = '保存';
+      saveBtn.onclick = () => {
+        if (!taskInput.value.trim() || !deadlineInput.value.trim()) {
+          alert('クエスト内容と期限を入力してください。');
+          return;
+        }
+        taskData.text = taskInput.value;
+        taskData.deadline = deadlineInput.value;
+        
+        const newTaskElement = createTaskElement(taskData);
+        task.parentNode.replaceChild(newTaskElement, task);
+        isEditing = false;
+        saveTasks();
+        checkDeadlines();
+      };
+      
+      task.innerHTML = '';
+      task.appendChild(taskInput);
+      task.appendChild(document.createElement('br'));
+      task.appendChild(deadlineInput);
+      task.appendChild(saveBtn);
+      checkDeadlines();
+    };
+
+
+    // タスクの追加
+    const addTask = () => {
+      const taskInput = document.getElementById('new-task');
+      const deadlineInput = document.getElementById('new-deadline');
+      if (!taskInput.value.trim() || !deadlineInput.value.trim()) {
+        alert('クエスト内容と期限を入力してください。');
+        return;
+      }
+      const newTask = {
+        id: `task-${Date.now()}`,
+        text: taskInput.value.trim(),
+        deadline: deadlineInput.value.trim()
+      }
+      document.getElementById('todo').appendChild(createTaskElement(newTask));
+      taskInput.value = '';
+      deadlineInput.value = '';
+      saveTasks();
+      checkDeadlines();
+    }
+    
+    // 期限のチェック
+    const checkDeadlines = () => {
+      const today = new Date();
+      const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
+      document.querySelectorAll('.task').forEach(task => {
+        const deadlineElement = task.querySelector('.deadline');
+        if (deadlineElement) {
+          const deadline = new Date(deadlineElement.textContent.replace('【期限】','').replace('削除','').replace('編集','').replace('保存','').trim()).toISOString().split('T')[0];
+          if (deadline < todayString) {
+            task.style.borderColor = 'red';
+            task.style.boxShadow = '0 0 10px red';
+          } else if (deadline === todayString) {
+            task.style.borderColor = 'orange';
+            task.style.boxShadow = '0 0 10px orange';
+          } else {
+            task.style.borderColor = 'white';
+            task.style.boxShadow = '0 0 10px white';
+          }
+        }
+      });
+    }
+
+    document.querySelectorAll('.column').forEach(column => {
+      column.ondragover = e => {
+        if (!isEditing) {
+          e.preventDefault();
+        }
+      };
+      column.ondrop = e => {
+        if (!isEditing) {
+          const taskId = e.dataTransfer.getData('text/plain');
+          const task = document.getElementById(taskId);
+          if (task) {
+            column.appendChild(task);
+          }
+          saveTasks();
+        }
+      };
+    });
+    window.onload = loadTasks;
+  </script>
+</body>
+</html>
+
+
