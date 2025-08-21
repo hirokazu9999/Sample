@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4択テスト</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    .test-container {
+      text-align: left;
+      margin: auto;
+      padding: 20px;
+      max-width: 600px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    button {
+      font-size: 16pt;
+      text-align: left;
+      background-color: #4caf50;
+      color: white;
+      cursor: pointer;
+      padding: 10px 20px;
+      margin: auto;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #45a048;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h2>4択テスト</h2>
+    <p id="testCount"></p>
+    <input type="file" id="fileInput" accept=".csv" style="display:none" />
+    <button id="fileSelect">問題CSVの読込</button>
+    <button id="startButton">4択テスト開始</button>
+    <hr>
+    <p id="feedback"></p>
+    <p id="question"></p>
+    <div id="options"></div>
+  </div>
+  <script>
+    const testQuestions = [];
+    
+    let currentQuestion = 0;
+    let score = 0;
+    
+    // 問題数の表示
+    function displayTestCount() {
+      const data = localStorage.getItem("testData");
+      const testCountElement = document.getElementById("testCount");
+      if (data) {
+        const rows = data.split("\n").filter(row => row.trim() !== "");
+        testCountElement.textContent = `現在、${rows.length}問の問題が登録されています。`;
+      } else {
+        testCountElement.textContent = "問題が登録されていません！";
+      }
+    }
+    
+    // 問題ファイルの読込とローカルストレージへの保存
+    document.getElementById("fileSelect").addEventListener("click", (e) => {
+      if (document.getElementById("fileInput")) {
+        document.getElementById("fileInput").click();
+      }
+    }, false);
+    document.getElementById("fileInput").addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const text = e.target.result;
+          
+          // CSVをローカルストレージに保存
+          localStorage.setItem("testData", text);
+          
+          // 問題数の表示
+          displayTestCount();
+          
+          // メッセージ
+          alert('問題CSVの内容を保存しました！');
+        };
+        reader.readAsText(file);
+      }
+    });
+    
+    // 配列をシャッフルする
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    
+    // データ(CSV)を配列に変換
+    function parseCSV(data) {
+      const rows = data.split("\n");
+      testQuestions.length = 0;
+      rows.forEach(row => {
+        if (row.trim() !== "") {
+          const columns = row.split(",");
+          const question = columns[0];
+          const options = columns.slice(1, -1);
+          const answer = columns[columns.length - 1];
+          testQuestions.push({question, options, answer});
+        }
+      });
+      // 問題をシャッフル
+      shuffle(testQuestions);
+    }
+    
+    // 問題の表示
+    function showTest() {
+      //問題数表示、問題CSVの読込、4択テスト開始を非表示に設定
+      document.getElementById("testCount").style.display = 'none';
+      document.getElementById("fileSelect").style.display = 'none';
+      document.getElementById("startButton").style.display = 'none';
+      
+      const feedbackElement = document.getElementById("feedback");
+      const questionElement = document.getElementById("question");
+      const optionsElement = document.getElementById("options");
+      
+      feedbackElement.textContent = "";
+      
+      const testQuestion = testQuestions[currentQuestion];
+      questionElement.textContent = testQuestion.question;
+      
+      // 選択肢をシャッフル
+      const shuffledOptions = shuffle([...testQuestion.options]);
+      
+      optionsElement.innerHTML = '';
+      shuffledOptions.forEach(option => {
+        const button = document.createElement('button');
+        button.textContent = option;
+        button.onclick = () => checkAnswer(option.trim());
+        optionsElement.appendChild(button);
+        optionsElement.appendChild(document.createElement('br'));
+      });
+    }
+    
+    // 答えをチェック
+    function checkAnswer(userAnswer) {
+      const feedbackElement = document.getElementById("feedback");
+      const correctAnswer = testQuestions[currentQuestion].answer.trim();
+      
+      if (userAnswer === correctAnswer) {
+        feedbackElement.textContent = "正解！";
+        score++;
+      } else {
+        feedbackElement.textContent = `不正解！　正解は「${correctAnswer}」です。`;
+      }
+      currentQuestion++;
+      if (currentQuestion < testQuestions.length) {
+        setTimeout(showTest, 1500);
+      } else {
+        setTimeout(() => {
+          feedbackElement.textContent = `終了！あなたの得点は、${score}点です！`;
+          document.getElementById("question").textContent = "";
+          document.getElementById("options").innerHTML = '';
+        }, 1500);
+      }
+    }
+    
+    // ページ読込時に問題数を表示
+    window.onload = displayTestCount;
+    
+    document.getElementById("startButton").addEventListener("click", () => {
+      if (testQuestions.length > 0) {
+        showTest();
+      } else {
+        const data = localStorage.getItem("testData");
+        if (data) {
+          parseCSV(data);
+        }
+        if (testQuestions.length > 0) {
+          showTest();
+        } else {
+          alert('CSVファイルをアップロードしてください！');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
